@@ -48,6 +48,8 @@ export const solutionsAPI = {
   list: (problemId) => api.get(`/api/problems/${problemId}/solutions`),
   create: (problemId, data) => api.post(`/api/problems/${problemId}/solutions`, data),
   getOne: (problemId, solutionId) => api.get(`/api/problems/${problemId}/solutions/${solutionId}`),
+  updateStage: (problemId, solutionId, status) =>
+    api.patch(`/api/problems/${problemId}/solutions/${solutionId}/stage`, { status }),
 };
 
 // Teams API
@@ -57,6 +59,9 @@ export const teamsAPI = {
   join: (id, data) => api.post(`/api/teams/${id}/join`, data),
   getTasks: (id) => api.get(`/api/teams/${id}/tasks`),
   createTask: (id, data) => api.post(`/api/teams/${id}/tasks`, data),
+  joinRequests: (id) => api.get(`/api/teams/${id}/join-requests`),
+  updateJoinRequest: (teamId, requestId, status) =>
+    api.put(`/api/teams/${teamId}/join-requests/${requestId}`, { status }),
   updateTask: (teamId, taskId, data) =>
     api.put(`/api/teams/${teamId}/tasks/${taskId}`, data),
 };

@@ -125,6 +125,15 @@ export default function ProblemDetails() {
     }
   }
 
+  const handleSolutionStage = async (solutionId, status) => {
+    try {
+      await solutionsAPI.updateStage(id, solutionId, status)
+      await loadProblem()
+    } catch (error) {
+      alert('Unable to update solution stage')
+    }
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Loader className="animate-spin" size={40} /></div>
   }
@@ -269,6 +278,20 @@ export default function ProblemDetails() {
                 <div key={sol.id} className="border rounded p-4">
                   <p className="font-semibold">{sol.title}</p>
                   <p className="text-sm text-gray-600 mt-2">{sol.description}</p>
+                  <div className="flex items-center gap-3 mt-3">
+                    <span className="text-xs font-semibold text-gray-500">Stage</span>
+                    <select
+                      value={sol.status}
+                      onChange={(event) => handleSolutionStage(sol.id, event.target.value)}
+                      className="text-sm px-2 py-1 border rounded"
+                    >
+                      <option value="proposed">Proposed</option>
+                      <option value="under_review">Under Review</option>
+                      <option value="approved">Approved</option>
+                      <option value="implemented">Implemented</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
                 </div>
               ))}
             </div>

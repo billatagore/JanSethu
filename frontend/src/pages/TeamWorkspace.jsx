@@ -32,7 +32,7 @@ export default function TeamWorkspace() {
   const handleAddTask = async () => {
     if (!newTask.trim()) return
     try {
-      await teamsAPI.createTask(id, { title: newTask, description: '' }, 0)
+      await teamsAPI.createTask(id, { title: newTask, description: '' })
       setNewTask('')
       await loadTeam()
     } catch (error) {

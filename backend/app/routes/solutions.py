@@ -143,3 +143,31 @@ def update_solution(
         "id": solution.id,
         "message": "Solution updated successfully",
     }
+
+
+@router.patch("/{problem_id}/solutions/{solution_id}/stage")
+def update_solution_stage(
+    problem_id: int,
+    solution_id: int,
+    stage_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Move a solution through its supported workflow stages."""
+    solution = db.query(Solution).filter(
+        Solution.id == solution_id,
+        Solution.problem_id == problem_id,
+    ).first()
+    if not solution:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solution not found")
+    if solution.submitted_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the solution owner can update its stage")
+
+    allowed_stages = {"proposed", "under_review", "approved", "rejected", "implemented"}
+    stage = stage_data.get("status")
+    if stage not in allowed_stages:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid solution stage")
+
+    solution.status = SolutionStatus(stage)
+    db.commit()
+    return {"id": solution.id, "status": solution.status}

@@ -29,7 +29,7 @@ export default function SolutionSubmission() {
     setSubmitting(true)
 
     try {
-      await solutionsAPI.create(id, formData, user.id)
+      await solutionsAPI.create(id, formData)
       alert('Solution submitted successfully!')
       navigate(`/problems/${id}`)
     } catch (error) {

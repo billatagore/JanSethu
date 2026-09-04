@@ -105,25 +105,95 @@ def request_to_join_team(
             detail="User already in team",
         )
 
-    # Create join request
+    existing_request = db.query(TeamJoinRequest).filter(
+        TeamJoinRequest.team_id == team_id,
+        TeamJoinRequest.user_id == current_user.id,
+        TeamJoinRequest.status == "pending",
+    ).first()
+    if existing_request:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Join request already pending",
+        )
+
     request = TeamJoinRequest(
         user_id=current_user.id,
         team_id=team_id,
         requested_role=join_data.get("requested_role"),
-        status="accepted",  # Auto-accept for demo
+        status="pending",
     )
 
     db.add(request)
-
-    # Add user to team
-    team.members.append(current_user)
-
     db.commit()
 
     return {
-        "message": "Joined team successfully",
+        "message": "Join request submitted successfully",
         "team_id": team_id,
+        "status": request.status,
     }
+
+
+@router.get("/{team_id}/join-requests")
+def list_join_requests(
+    team_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List join requests for a team lead."""
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+    if team.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the team lead can view requests")
+
+    return {
+        "team_id": team_id,
+        "requests": [
+            {
+                "id": request.id,
+                "user_id": request.user_id,
+                "requested_role": request.requested_role,
+                "status": request.status,
+                "created_at": request.created_at,
+            }
+            for request in team.join_requests
+        ],
+    }
+
+
+@router.put("/{team_id}/join-requests/{request_id}")
+def update_join_request(
+    team_id: int,
+    request_id: int,
+    request_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Approve or reject a team join request."""
+    team = db.query(Team).filter(Team.id == team_id).first()
+    request = db.query(TeamJoinRequest).filter(
+        TeamJoinRequest.id == request_id,
+        TeamJoinRequest.team_id == team_id,
+    ).first()
+    if not team or not request:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Join request not found")
+    if team.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the team lead can update requests")
+
+    decision = request_data.get("status")
+    if decision not in {"accepted", "rejected"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Status must be accepted or rejected")
+    if request.status != "pending":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Join request already decided")
+
+    request.status = decision
+    if decision == "accepted":
+        user = db.query(User).filter(User.id == request.user_id).first()
+        if user and user not in team.members:
+            team.members.append(user)
+    db.commit()
+
+    return {"id": request.id, "status": request.status}
 
 
 @router.get("/{team_id}/tasks")
