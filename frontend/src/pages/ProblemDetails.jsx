@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { problemsAPI, teamsAPI, solutionsAPI, commentsAPI, usersAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
-import { Loader, AlertCircle, MessageSquare, Users, Plus, MapPin, TrendingUp } from 'lucide-react'
+import { Loader, AlertCircle, MessageSquare, Users, Plus, MapPin, TrendingUp, ThumbsUp, Bookmark } from 'lucide-react'
 
 export default function ProblemDetails() {
   const { id } = useParams()
@@ -16,6 +16,9 @@ export default function ProblemDetails() {
   const [newComment, setNewComment] = useState('')
   const [posting, setPosting] = useState(false)
   const [matches, setMatches] = useState([])
+  const [voted, setVoted] = useState(false)
+  const [following, setFollowing] = useState(false)
+  const [socialLoading, setSocialLoading] = useState(false)
 
   useEffect(() => {
     loadProblem()
@@ -82,6 +85,46 @@ export default function ProblemDetails() {
     }
   }
 
+  const handleVote = async () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    setSocialLoading(true)
+    try {
+      const response = voted
+        ? await problemsAPI.removeVote(id)
+        : await problemsAPI.vote(id)
+      setVoted(response.data.voted)
+      setProblem((current) => ({ ...current, vote_count: response.data.vote_count }))
+    } catch (error) {
+      alert('Unable to update your vote')
+    } finally {
+      setSocialLoading(false)
+    }
+  }
+
+  const handleFollow = async () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    setSocialLoading(true)
+    try {
+      const response = following
+        ? await problemsAPI.unfollow(id)
+        : await problemsAPI.follow(id)
+      setFollowing(response.data.following)
+      setProblem((current) => ({ ...current, follower_count: response.data.follower_count }))
+    } catch (error) {
+      alert('Unable to update following status')
+    } finally {
+      setSocialLoading(false)
+    }
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Loader className="animate-spin" size={40} /></div>
   }
@@ -118,6 +161,22 @@ export default function ProblemDetails() {
 
         {/* Actions */}
         <div className="flex gap-4 mb-8">
+          <button
+            onClick={handleVote}
+            disabled={socialLoading}
+            className={`px-5 py-2 rounded-lg border flex items-center gap-2 transition ${voted ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'} disabled:opacity-50`}
+          >
+            <ThumbsUp size={18} />
+            {voted ? 'Supported' : 'Support'} ({problem.vote_count || 0})
+          </button>
+          <button
+            onClick={handleFollow}
+            disabled={socialLoading}
+            className={`px-5 py-2 rounded-lg border flex items-center gap-2 transition ${following ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-700 border-gray-300 hover:border-amber-500'} disabled:opacity-50`}
+          >
+            <Bookmark size={18} />
+            {following ? 'Following' : 'Follow'} ({problem.follower_count || 0})
+          </button>
           <button
             onClick={handleCreateTeam}
             className="btn-primary px-6 py-2 flex items-center gap-2"

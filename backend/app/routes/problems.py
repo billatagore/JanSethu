@@ -12,6 +12,8 @@ from app.models import (
     Skill,
     SDG,
     ProblemStatus,
+    ProblemVote,
+    ProblemFollow,
 )
 from app.schemas import (
     ProblemCreate,
@@ -207,10 +209,96 @@ def get_problem(problem_id: int, db: Session = Depends(get_db)):
         "urgency": problem.urgency,
         "status": problem.status,
         "priority_score": problem.priority_score,
+        "vote_count": db.query(ProblemVote).filter(ProblemVote.problem_id == problem_id).count(),
+        "follower_count": db.query(ProblemFollow).filter(ProblemFollow.problem_id == problem_id).count(),
         "submitted_by": problem.submitted_by,
         "created_at": problem.created_at,
         "analysis": analysis,
     }
+
+
+@router.post("/{problem_id}/vote")
+def vote_for_problem(
+    problem_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add the current user's vote to a problem."""
+    problem = db.query(Problem).filter(Problem.id == problem_id).first()
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found")
+
+    vote = db.query(ProblemVote).filter(
+        ProblemVote.problem_id == problem_id,
+        ProblemVote.user_id == current_user.id,
+    ).first()
+    if not vote:
+        db.add(ProblemVote(problem_id=problem_id, user_id=current_user.id))
+        db.commit()
+
+    count = db.query(ProblemVote).filter(ProblemVote.problem_id == problem_id).count()
+    return {"voted": True, "vote_count": count}
+
+
+@router.delete("/{problem_id}/vote")
+def remove_vote_from_problem(
+    problem_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove the current user's vote from a problem."""
+    vote = db.query(ProblemVote).filter(
+        ProblemVote.problem_id == problem_id,
+        ProblemVote.user_id == current_user.id,
+    ).first()
+    if vote:
+        db.delete(vote)
+        db.commit()
+
+    count = db.query(ProblemVote).filter(ProblemVote.problem_id == problem_id).count()
+    return {"voted": False, "vote_count": count}
+
+
+@router.post("/{problem_id}/follow")
+def follow_problem(
+    problem_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Follow a problem as the current user."""
+    problem = db.query(Problem).filter(Problem.id == problem_id).first()
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found")
+
+    follow = db.query(ProblemFollow).filter(
+        ProblemFollow.problem_id == problem_id,
+        ProblemFollow.user_id == current_user.id,
+    ).first()
+    if not follow:
+        db.add(ProblemFollow(problem_id=problem_id, user_id=current_user.id))
+        db.commit()
+
+    count = db.query(ProblemFollow).filter(ProblemFollow.problem_id == problem_id).count()
+    return {"following": True, "follower_count": count}
+
+
+@router.delete("/{problem_id}/follow")
+def unfollow_problem(
+    problem_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Stop following a problem as the current user."""
+    follow = db.query(ProblemFollow).filter(
+        ProblemFollow.problem_id == problem_id,
+        ProblemFollow.user_id == current_user.id,
+    ).first()
+    if follow:
+        db.delete(follow)
+        db.commit()
+
+    count = db.query(ProblemFollow).filter(ProblemFollow.problem_id == problem_id).count()
+    return {"following": False, "follower_count": count}
 
 
 @router.post("/{problem_id}/analyze")

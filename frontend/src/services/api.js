@@ -33,8 +33,12 @@ export const authAPI = {
 // Problems API
 export const problemsAPI = {
   list: (params) => api.get('/api/problems', { params }),
-  create: (data, userId) => api.post('/api/problems', data, { params: { user_id: userId } }),
+  create: (data) => api.post('/api/problems', data),
   getOne: (id) => api.get(`/api/problems/${id}`),
+  vote: (id) => api.post(`/api/problems/${id}/vote`),
+  removeVote: (id) => api.delete(`/api/problems/${id}/vote`),
+  follow: (id) => api.post(`/api/problems/${id}/follow`),
+  unfollow: (id) => api.delete(`/api/problems/${id}/follow`),
   analyze: (id) => api.post(`/api/problems/${id}/analyze`),
   getMatches: (id) => api.get(`/api/problems/${id}/matches`),
 };
@@ -42,36 +46,31 @@ export const problemsAPI = {
 // Solutions API
 export const solutionsAPI = {
   list: (problemId) => api.get(`/api/problems/${problemId}/solutions`),
-  create: (problemId, data, userId) =>
-    api.post(`/api/problems/${problemId}/solutions`, data, { params: { user_id: userId } }),
+  create: (problemId, data) => api.post(`/api/problems/${problemId}/solutions`, data),
   getOne: (problemId, solutionId) => api.get(`/api/problems/${problemId}/solutions/${solutionId}`),
 };
 
 // Teams API
 export const teamsAPI = {
-  create: (data, userId) => api.post('/api/teams', data, { params: { user_id: userId } }),
+  create: (data) => api.post('/api/teams', data),
   getOne: (id) => api.get(`/api/teams/${id}`),
-  join: (id, data, userId) =>
-    api.post(`/api/teams/${id}/join`, data, { params: { user_id: userId } }),
+  join: (id, data) => api.post(`/api/teams/${id}/join`, data),
   getTasks: (id) => api.get(`/api/teams/${id}/tasks`),
-  createTask: (id, data, userId) =>
-    api.post(`/api/teams/${id}/tasks`, data, { params: { user_id: userId } }),
+  createTask: (id, data) => api.post(`/api/teams/${id}/tasks`, data),
   updateTask: (teamId, taskId, data) =>
     api.put(`/api/teams/${teamId}/tasks/${taskId}`, data),
 };
 
 // Comments API
 export const commentsAPI = {
-  create: (problemId, data, userId) =>
-    api.post(`/api/comments/problems/${problemId}`, data, { params: { user_id: userId } }),
+  create: (problemId, data) => api.post(`/api/comments/problems/${problemId}`, data),
   list: (problemId) => api.get(`/api/comments/problems/${problemId}`),
 };
 
 // Users API
 export const usersAPI = {
   getProfile: (id) => api.get(`/api/users/${id}`),
-  updateProfile: (id, data, currentUserId) =>
-    api.put(`/api/users/${id}`, data, { params: { current_user_id: currentUserId } }),
+  updateProfile: (id, data) => api.put(`/api/users/${id}`, data),
   getProblems: (id) => api.get(`/api/users/${id}/problems`),
   getSolutions: (id) => api.get(`/api/users/${id}/solutions`),
   getNotifications: (id) => api.get(`/api/users/${id}/notifications`),

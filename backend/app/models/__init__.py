@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Boolean, ForeignKey, Table, Enum
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Boolean, ForeignKey, Table, Enum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.database import Base
 from datetime import datetime
@@ -179,6 +179,34 @@ class Problem(Base):
     comments = relationship("Comment", back_populates="problem")
     teams = relationship("Team", back_populates="problem")
     updates = relationship("ProblemUpdate", back_populates="problem")
+    votes = relationship("ProblemVote", back_populates="problem", cascade="all, delete-orphan")
+    follows = relationship("ProblemFollow", back_populates="problem", cascade="all, delete-orphan")
+
+
+class ProblemVote(Base):
+    __tablename__ = "problem_vote"
+    __table_args__ = (UniqueConstraint("problem_id", "user_id", name="uq_problem_vote_user"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    problem_id = Column(Integer, ForeignKey("problem.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    problem = relationship("Problem", back_populates="votes")
+    user = relationship("User")
+
+
+class ProblemFollow(Base):
+    __tablename__ = "problem_follow"
+    __table_args__ = (UniqueConstraint("problem_id", "user_id", name="uq_problem_follow_user"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    problem_id = Column(Integer, ForeignKey("problem.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    problem = relationship("Problem", back_populates="follows")
+    user = relationship("User")
 
 
 class ProblemAnalysis(Base):
