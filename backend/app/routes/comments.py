@@ -4,6 +4,7 @@ from typing import List
 
 from app.database import get_db
 from app.models import Comment, Problem, User
+from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/comments", tags=["comments"])
 
@@ -13,15 +14,9 @@ def create_comment(
     problem_id: int,
     comment_data: dict,
     db: Session = Depends(get_db),
-    user_id: int = Query(None),
+    current_user: User = Depends(get_current_user),
 ):
     """Create a comment on a problem."""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not authenticated",
-        )
-
     problem = db.query(Problem).filter(Problem.id == problem_id).first()
     if not problem:
         raise HTTPException(
@@ -29,18 +24,11 @@ def create_comment(
             detail="Problem not found",
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
     # Create comment
     comment = Comment(
         content=comment_data.get("content"),
         problem_id=problem_id,
-        user_id=user_id,
+        user_id=current_user.id,
         parent_id=comment_data.get("parent_id"),
     )
 

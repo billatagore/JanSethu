@@ -5,6 +5,7 @@ import json
 
 from app.database import get_db
 from app.models import Team, TeamJoinRequest, User, Problem, Task, TaskStatus
+from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/teams", tags=["teams"])
 
@@ -13,15 +14,9 @@ router = APIRouter(prefix="/api/teams", tags=["teams"])
 def create_team(
     team_data: dict,
     db: Session = Depends(get_db),
-    user_id: int = Query(None),
+    current_user: User = Depends(get_current_user),
 ):
     """Create a new team for a problem."""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not authenticated",
-        )
-
     problem = db.query(Problem).filter(Problem.id == team_data.get("problem_id")).first()
     if not problem:
         raise HTTPException(
@@ -34,7 +29,7 @@ def create_team(
         name=team_data.get("name"),
         description=team_data.get("description"),
         problem_id=team_data.get("problem_id"),
-        created_by=user_id,
+        created_by=current_user.id,
         required_roles=json.dumps(team_data.get("required_roles", [])),
     )
 
@@ -42,9 +37,7 @@ def create_team(
     db.flush()
 
     # Add creator as team member
-    user = db.query(User).filter(User.id == user_id).first()
-    if user:
-        new_team.members.append(user)
+    new_team.members.append(current_user)
 
     db.commit()
     db.refresh(new_team)
@@ -95,15 +88,9 @@ def request_to_join_team(
     team_id: int,
     join_data: dict,
     db: Session = Depends(get_db),
-    user_id: int = Query(None),
+    current_user: User = Depends(get_current_user),
 ):
     """Request to join a team."""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not authenticated",
-        )
-
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(
@@ -111,15 +98,8 @@ def request_to_join_team(
             detail="Team not found",
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
     # Check if user already in team
-    if user in team.members:
+    if current_user in team.members:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User already in team",
@@ -127,7 +107,7 @@ def request_to_join_team(
 
     # Create join request
     request = TeamJoinRequest(
-        user_id=user_id,
+        user_id=current_user.id,
         team_id=team_id,
         requested_role=join_data.get("requested_role"),
         status="accepted",  # Auto-accept for demo
@@ -136,7 +116,7 @@ def request_to_join_team(
     db.add(request)
 
     # Add user to team
-    team.members.append(user)
+    team.members.append(current_user)
 
     db.commit()
 
@@ -180,7 +160,7 @@ def create_task(
     team_id: int,
     task_data: dict,
     db: Session = Depends(get_db),
-    user_id: int = Query(None),
+    current_user: User = Depends(get_current_user),
 ):
     """Create a task for a team."""
     team = db.query(Team).filter(Team.id == team_id).first()
@@ -189,6 +169,12 @@ def create_task(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found",
+        )
+
+    if current_user not in team.members:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only team members can create tasks",
         )
 
     task = Task(
@@ -216,6 +202,7 @@ def update_task(
     task_id: int,
     task_data: dict,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Update a task status."""
     task = (
@@ -226,6 +213,12 @@ def update_task(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found",
+        )
+
+    if current_user not in task.team.members:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only team members can update tasks",
         )
 
     if "status" in task_data:

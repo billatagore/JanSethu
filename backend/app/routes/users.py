@@ -15,6 +15,7 @@ from app.models import (
     SDG,
     ProblemStatus,
 )
+from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -59,10 +60,10 @@ def update_user_profile(
     user_id: int,
     user_data: dict,
     db: Session = Depends(get_db),
-    current_user_id: int = Query(None),
+    current_user: User = Depends(get_current_user),
 ):
     """Update user profile."""
-    if user_id != current_user_id:
+    if user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Can only update your own profile",
@@ -148,8 +149,18 @@ def get_user_solutions(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}/notifications")
-def get_user_notifications(user_id: int, db: Session = Depends(get_db)):
+def get_user_notifications(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Get user notifications."""
+    if user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Can only view your own notifications",
+        )
+
     notifications = (
         db.query(Notification)
         .filter(Notification.user_id == user_id)

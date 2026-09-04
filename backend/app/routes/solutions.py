@@ -5,6 +5,7 @@ from typing import List, Optional
 from app.database import get_db
 from app.models import Solution, Problem, User, SolutionStatus
 from app.schemas import SolutionCreate, SolutionResponse
+from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/problems", tags=["solutions"])
 
@@ -14,15 +15,9 @@ def create_solution(
     problem_id: int,
     solution_data: SolutionCreate,
     db: Session = Depends(get_db),
-    user_id: int = Query(None),
+    current_user: User = Depends(get_current_user),
 ):
     """Submit a solution for a problem."""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not authenticated",
-        )
-
     problem = db.query(Problem).filter(Problem.id == problem_id).first()
     if not problem:
         raise HTTPException(
@@ -30,19 +25,12 @@ def create_solution(
             detail="Problem not found",
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
     # Create solution
     new_solution = Solution(
         title=solution_data.title,
         description=solution_data.description,
         problem_id=problem_id,
-        submitted_by=user_id,
+        submitted_by=current_user.id,
         technology=solution_data.technology,
         expected_impact=solution_data.expected_impact,
         estimated_cost=solution_data.estimated_cost,
@@ -119,7 +107,7 @@ def update_solution(
     solution_id: int,
     solution_data: SolutionCreate,
     db: Session = Depends(get_db),
-    user_id: int = Query(None),
+    current_user: User = Depends(get_current_user),
 ):
     """Update a solution."""
     solution = (
@@ -134,7 +122,7 @@ def update_solution(
             detail="Solution not found",
         )
 
-    if solution.submitted_by != user_id:
+    if solution.submitted_by != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only update your own solutions",

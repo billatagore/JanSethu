@@ -19,6 +19,7 @@ from app.schemas import (
     AIAnalysisResponse,
 )
 from app.services import analyze_problem, match_users_to_problem
+from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/problems", tags=["problems"])
 
@@ -27,22 +28,9 @@ router = APIRouter(prefix="/api/problems", tags=["problems"])
 async def create_problem(
     problem_data: ProblemCreate,
     db: Session = Depends(get_db),
-    user_id: int = Query(None),
+    current_user: User = Depends(get_current_user),
 ):
     """Create a new problem."""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not authenticated",
-        )
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
     # Create problem
     new_problem = Problem(
         title=problem_data.title,
@@ -58,7 +46,7 @@ async def create_problem(
         why_insufficient=problem_data.why_insufficient,
         urgency=problem_data.urgency,
         expected_outcome=problem_data.expected_outcome,
-        submitted_by=user_id,
+        submitted_by=current_user.id,
         status=ProblemStatus.SUBMITTED,
     )
 
