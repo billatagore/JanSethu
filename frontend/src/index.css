@@ -81,6 +81,19 @@ code {
   box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
 }
 
+.leaflet-container.map-zoom-compact .problem-distance-label {
+  display: none;
+}
+
+.leaflet-container.map-zoom-compact .map-pin-wrapper {
+  transform: scale(0.78);
+  transform-origin: center;
+}
+
+.leaflet-container.map-zoom-tiny .map-pin-wrapper {
+  transform: scale(0.62);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

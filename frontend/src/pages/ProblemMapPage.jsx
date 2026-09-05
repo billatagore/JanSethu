@@ -299,6 +299,16 @@ export default function ProblemMapPage() {
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(mapInstanceRef.current)
 
+    const updateMarkerDensity = () => {
+      const mapContainer = mapInstanceRef.current.getContainer()
+      const zoom = mapInstanceRef.current.getZoom()
+      mapContainer.classList.toggle('map-zoom-compact', zoom < 13)
+      mapContainer.classList.toggle('map-zoom-tiny', zoom < 10)
+    }
+
+    mapInstanceRef.current.on('zoomend', updateMarkerDensity)
+    updateMarkerDensity()
+
     pinpointUserLocation()
   }, [])
 
@@ -396,7 +406,7 @@ export default function ProblemMapPage() {
         : 'Location unavailable'
 
       const label = document.createElement('div')
-      label.className = 'text-[10px] text-slate-700 bg-white/90 shadow-sm px-2 py-1 rounded-full border border-slate-200'
+      label.className = 'problem-distance-label text-[10px] text-slate-700 bg-white/90 shadow-sm px-2 py-1 rounded-full border border-slate-200'
       label.textContent = distanceText
       label.style.position = 'absolute'
       label.style.transform = 'translate(-50%, -140%)'
