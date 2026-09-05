@@ -94,6 +94,11 @@ code {
   transform: scale(0.62);
 }
 
+.leaflet-container.map-zoom-compact .problem-cluster-wrapper {
+  transform: scale(0.82);
+  transform-origin: center;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

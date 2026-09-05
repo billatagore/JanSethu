@@ -32,6 +32,15 @@ function getMarkerIcon(urgency) {
   })
 }
 
+function getClusterIcon(count) {
+  return L.divIcon({
+    className: 'problem-cluster-wrapper',
+    html: `<span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#0f766e;border:3px solid white;box-shadow:0 5px 15px rgba(15,23,42,0.25);color:#fff;font-size:11px;font-weight:800;">${count}</span>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  })
+}
+
 function getUserLocationIcon() {
   return L.divIcon({
     className: 'user-location-wrapper',
@@ -216,6 +225,7 @@ export default function ProblemMapPage() {
   const [selectedProblemId, setSelectedProblemId] = useState(null)
   const [userCoords, setUserCoords] = useState(null)
   const [radiusKm, setRadiusKm] = useState(25)
+  const [mapZoom, setMapZoom] = useState(5)
   const [submissionNotice, setSubmissionNotice] = useState(null)
 
   const pinpointUserLocation = () => {
@@ -302,6 +312,7 @@ export default function ProblemMapPage() {
     const updateMarkerDensity = () => {
       const mapContainer = mapInstanceRef.current.getContainer()
       const zoom = mapInstanceRef.current.getZoom()
+      setMapZoom(zoom)
       mapContainer.classList.toggle('map-zoom-compact', zoom < 13)
       mapContainer.classList.toggle('map-zoom-tiny', zoom < 10)
     }
@@ -393,9 +404,37 @@ export default function ProblemMapPage() {
 
     if (!visibleProblems.length) return
 
-    const bounds = []
+    const markerGroups = []
     visibleProblems.forEach((problem) => {
       if (!problem.resolvedCoords) return
+
+      const point = map.latLngToContainerPoint([problem.resolvedCoords.lat, problem.resolvedCoords.lng])
+      const nearbyGroup = markerGroups.find((group) => group.some((item) => point.distanceTo(item.point) < 28))
+      if (nearbyGroup) {
+        nearbyGroup.push({ problem, point })
+      } else {
+        markerGroups.push([{ problem, point }])
+      }
+    })
+
+    markerGroups.forEach((group) => {
+      if (group.length > 1) {
+        const center = group.reduce(
+          (total, item) => ({
+            lat: total.lat + item.problem.resolvedCoords.lat / group.length,
+            lng: total.lng + item.problem.resolvedCoords.lng / group.length,
+          }),
+          { lat: 0, lng: 0 }
+        )
+        const cluster = L.marker([center.lat, center.lng], { icon: getClusterIcon(group.length) })
+          .addTo(map)
+          .bindTooltip(`${group.length} nearby problems`, { direction: 'top', offset: [0, -14] })
+        cluster.on('click', () => map.setView([center.lat, center.lng], Math.min(map.getZoom() + 2, 19)))
+        markersRef.current.push(cluster)
+        return
+      }
+
+      const problem = group[0].problem
 
       const marker = L.marker([problem.resolvedCoords.lat, problem.resolvedCoords.lng], {
         icon: getMarkerIcon(problem.urgency || 'medium'),
@@ -422,13 +461,12 @@ export default function ProblemMapPage() {
       marker.bindPopup(`<strong>${problem.title}</strong><br />${problem.location}<br /><small>${problem.category}</small><br /><strong>${getUrgencyLabel(problem.urgency || 'medium')}</strong><br /><small>${distanceText}</small>`)
       marker.on('click', () => setSelectedProblemId(problem.id))
       markersRef.current.push(marker)
-      bounds.push([problem.resolvedCoords.lat, problem.resolvedCoords.lng])
     })
 
     // Keep the map stable while the user explores nearby issues. Auto-fitting on every
     // selection or radius change causes markers to collapse unexpectedly and can make
     // the rest of the map disappear during navigation.
-  }, [filteredProblems, problems.length, radiusKm, userCoords])
+  }, [filteredProblems, problems.length, radiusKm, userCoords, mapZoom])
 
   const categories = useMemo(
     () => [...new Set((problems || []).map((problem) => problem.category).filter(Boolean))],
