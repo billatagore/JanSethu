@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { analyticsAPI } from '../services/api'
 import { Link } from 'react-router-dom'
-import { TrendingUp, Users, Zap, BarChart3, Plus } from 'lucide-react'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { TrendingUp, Users, Zap, BarChart3, Plus, Map, Building2, GraduationCap } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { getRoleDashboardConfig } from '../utils/dashboardConfig'
 
 export default function Dashboard() {
   const { user } = useAuth()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const variant = getRoleDashboardConfig(user?.role)
 
   useEffect(() => {
     loadDashboard()
@@ -36,28 +38,31 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center">
           <div>
-            <h1 className="text-4xl font-bold mb-2">Welcome, {user?.name}!</h1>
-            <p className="text-gray-600">Your role: <strong>{user?.role}</strong></p>
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">{variant.focusLabel}</p>
+            <h1 className="text-4xl font-bold mb-2 mt-2">{variant.title}</h1>
+            <p className="text-gray-600">Welcome, {user?.name}. {variant.subtitle}</p>
           </div>
-          <Link
-            to="/submit-problem"
-            className="btn-primary px-6 py-3 flex items-center gap-2"
-          >
-            <Plus size={20} />
-            Submit Challenge
-          </Link>
+
+          <div className="flex flex-wrap gap-3">
+            <Link to="/map" className="btn-primary px-6 py-3 flex items-center gap-2">
+              <Map size={18} />
+              {variant.primaryAction}
+            </Link>
+            <Link to="/submit-problem" className="btn-secondary px-6 py-3 flex items-center gap-2">
+              <Plus size={20} />
+              Submit Challenge
+            </Link>
+          </div>
         </div>
 
-        {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white p-6 rounded-lg card-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-600 mb-2">Total Problems</p>
+                  <p className="text-gray-600 mb-2">{variant.cards[0].label}</p>
                   <p className="text-3xl font-bold text-blue-600">{stats.total_problems}</p>
                 </div>
                 <BarChart3 size={40} className="text-blue-100" />
@@ -67,27 +72,27 @@ export default function Dashboard() {
             <div className="bg-white p-6 rounded-lg card-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-600 mb-2">Solutions</p>
-                  <p className="text-3xl font-bold text-green-600">{stats.total_solutions}</p>
+                  <p className="text-gray-600 mb-2">{variant.cards[1].label}</p>
+                  <p className="text-3xl font-bold text-green-600">{stats.total_teams}</p>
                 </div>
-                <Zap size={40} className="text-green-100" />
+                <Users size={40} className="text-green-100" />
               </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg card-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-600 mb-2">Active Teams</p>
-                  <p className="text-3xl font-bold text-purple-600">{stats.total_teams}</p>
+                  <p className="text-gray-600 mb-2">{variant.cards[2].label}</p>
+                  <p className="text-3xl font-bold text-purple-600">{stats.total_solutions}</p>
                 </div>
-                <Users size={40} className="text-purple-100" />
+                <Zap size={40} className="text-purple-100" />
               </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg card-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-600 mb-2">Contributors</p>
+                  <p className="text-gray-600 mb-2">{variant.cards[3].label}</p>
                   <p className="text-3xl font-bold text-orange-600">{stats.total_users}</p>
                 </div>
                 <TrendingUp size={40} className="text-orange-100" />
@@ -96,10 +101,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Charts */}
         {stats && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Problems by Category */}
             <div className="bg-white p-6 rounded-lg card-shadow">
               <h3 className="text-xl font-bold mb-4">Problems by Category</h3>
               <ResponsiveContainer width="100%" height={300}>
@@ -113,9 +116,8 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
 
-            {/* Problems by Status */}
             <div className="bg-white p-6 rounded-lg card-shadow">
-              <h3 className="text-xl font-bold mb-4">Problems by Status</h3>
+              <h3 className="text-xl font-bold mb-4">Issue Status</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -137,10 +139,9 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Top Problems */}
         {stats && stats.top_problems && (
           <div className="bg-white p-6 rounded-lg card-shadow">
-            <h3 className="text-xl font-bold mb-4">Top Priority Problems</h3>
+            <h3 className="text-xl font-bold mb-4">Priority issues near your region</h3>
             <div className="space-y-4">
               {stats.top_problems.slice(0, 5).map((problem) => (
                 <Link

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Menu, X, Bell, MessageSquare, LogOut, Home, Plus, Search, FileText } from 'lucide-react'
+import { Menu, X, Bell, MessageSquare, LogOut, Home, Plus, Search, FileText, Map } from 'lucide-react'
 
 export default function Navigation() {
   const { user, logout } = useAuth()
@@ -34,6 +34,10 @@ export default function Navigation() {
             <Link to="/explore" className="text-gray-600 hover:text-blue-600 flex items-center space-x-1">
               <Search size={18} />
               <span>Explore</span>
+            </Link>
+            <Link to="/map" className="text-gray-600 hover:text-blue-600 flex items-center space-x-1">
+              <Map size={18} />
+              <span>Map</span>
             </Link>
             <Link to="/submit-problem" className="text-gray-600 hover:text-blue-600 flex items-center space-x-1">
               <Plus size={18} />
@@ -83,6 +87,9 @@ export default function Navigation() {
             </Link>
             <Link to="/explore" className="block py-2 text-gray-600 hover:text-blue-600">
               Explore
+            </Link>
+            <Link to="/map" className="block py-2 text-gray-600 hover:text-blue-600">
+              Map
             </Link>
             <Link to="/submit-problem" className="block py-2 text-gray-600 hover:text-blue-600">
               Submit Problem

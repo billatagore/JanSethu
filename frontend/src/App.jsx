@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
@@ -25,6 +25,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import MessagesPage from './pages/MessagesPage'
 import NotificationsPage from './pages/NotificationsPage'
+import ProblemMapPage from './pages/ProblemMapPage'
 
 function ProtectedRoute({ children, requiredRole = null }) {
   const { user, token } = useAuth()
@@ -48,6 +49,7 @@ function AppRoutes() {
       <Route path="/about" element={<AboutPage />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
       <Route path="/explore" element={<ExploreChallenges />} />
+      <Route path="/map" element={<ProblemMapPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/problems/:id" element={<ProblemDetails />} />
