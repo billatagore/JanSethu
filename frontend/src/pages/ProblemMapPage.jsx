@@ -244,36 +244,6 @@ export default function ProblemMapPage() {
           setSelectedProblemId((previous) => previous || merged[0]?.id || null)
           return merged
         })
-
-        if (mapInstanceRef.current) {
-          if (userLocationMarkerRef.current) {
-            userLocationMarkerRef.current.setLatLng([nextCoords.lat, nextCoords.lng])
-          } else {
-            userLocationMarkerRef.current = L.marker([nextCoords.lat, nextCoords.lng], {
-              icon: getUserLocationIcon(),
-            })
-              .addTo(mapInstanceRef.current)
-              .bindPopup('Your current location')
-          }
-
-          if (radiusCircleRef.current) {
-            radiusCircleRef.current.setLatLng([nextCoords.lat, nextCoords.lng])
-            radiusCircleRef.current.setRadius(radiusKm * 1000)
-          } else {
-            radiusCircleRef.current = L.circle([nextCoords.lat, nextCoords.lng], {
-              radius: radiusKm * 1000,
-              color: '#ef4444',
-              fillColor: '#ef4444',
-              fillOpacity: 0.12,
-              weight: 2,
-            }).addTo(mapInstanceRef.current)
-          }
-
-          mapInstanceRef.current.flyTo([nextCoords.lat, nextCoords.lng], 12, {
-            animate: true,
-            duration: 1.2,
-          })
-        }
       },
       () => {
         setUserCoords(null)
@@ -341,6 +311,38 @@ export default function ProblemMapPage() {
 
     pinpointUserLocation()
   }, [])
+
+  useEffect(() => {
+    if (!mapInstanceRef.current || !userCoords) return
+
+    const map = mapInstanceRef.current
+    const location = [userCoords.lat, userCoords.lng]
+
+    if (userLocationMarkerRef.current) {
+      userLocationMarkerRef.current.setLatLng(location)
+    } else {
+      userLocationMarkerRef.current = L.marker(location, {
+        icon: getUserLocationIcon(),
+      })
+        .addTo(map)
+        .bindPopup('Your current location')
+    }
+
+    if (radiusCircleRef.current) {
+      radiusCircleRef.current.setLatLng(location)
+      radiusCircleRef.current.setRadius(radiusKm * 1000)
+    } else {
+      radiusCircleRef.current = L.circle(location, {
+        radius: radiusKm * 1000,
+        color: '#ef4444',
+        fillColor: '#ef4444',
+        fillOpacity: 0.12,
+        weight: 2,
+      }).addTo(map)
+    }
+
+    map.flyTo(location, 12, { animate: true, duration: 1.2 })
+  }, [userCoords, radiusKm])
 
   const filteredProblems = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
