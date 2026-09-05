@@ -237,6 +237,13 @@ export default function ProblemMapPage() {
       ({ coords }) => {
         const nextCoords = { lat: coords.latitude, lng: coords.longitude }
         setUserCoords(nextCoords)
+        setProblems((currentProblems) => {
+          const realProblems = currentProblems.filter((problem) => !problem.isDemo)
+          const demoProblems = generateNearbyDemoProblems(nextCoords, 15)
+          const merged = realProblems.length > 0 ? [...realProblems, ...demoProblems] : demoProblems
+          setSelectedProblemId((previous) => previous || merged[0]?.id || null)
+          return merged
+        })
 
         if (mapInstanceRef.current) {
           if (userLocationMarkerRef.current) {
@@ -296,14 +303,23 @@ export default function ProblemMapPage() {
         })
       )
 
-      setProblems(normalized)
-      if (normalized.length > 0) {
-        setSelectedProblemId(normalized[0].id)
-      }
+      setProblems((currentProblems) => {
+        const demoProblems = currentProblems.filter((problem) => problem.isDemo)
+        const merged = [...normalized, ...demoProblems]
+        if (merged.length > 0) {
+          setSelectedProblemId((previous) => previous || merged[0].id)
+        }
+        return merged
+      })
     } catch (error) {
       console.error('Failed to load map data:', error)
-      setProblems(generateNearbyDemoProblems(defaultCenter, 15))
-      setSelectedProblemId('demo-1')
+      setProblems((currentProblems) => {
+        if (currentProblems.length > 0) return currentProblems
+
+        const fallbackProblems = generateNearbyDemoProblems(defaultCenter, 15)
+        setSelectedProblemId('demo-1')
+        return fallbackProblems
+      })
     } finally {
       setLoading(false)
     }
@@ -325,24 +341,6 @@ export default function ProblemMapPage() {
 
     pinpointUserLocation()
   }, [])
-
-  useEffect(() => {
-    if (!userCoords) return
-
-    setProblems((currentProblems) => {
-      const nonDemo = currentProblems.filter((problem) => !problem.isDemo)
-      const demoNeeded = 15 - nonDemo.length
-
-      if (demoNeeded <= 0) {
-        return currentProblems
-      }
-
-      const demoProblems = generateNearbyDemoProblems(userCoords, demoNeeded)
-      const merged = [...nonDemo, ...demoProblems]
-      setSelectedProblemId((previous) => previous || merged[0]?.id || null)
-      return merged
-    })
-  }, [userCoords])
 
   const filteredProblems = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
@@ -435,14 +433,6 @@ export default function ProblemMapPage() {
     () => filteredProblems.find((problem) => problem.id === selectedProblemId) || filteredProblems[0] || null,
     [filteredProblems, selectedProblemId]
   )
-
-  useEffect(() => {
-    if (!selectedProblem || !selectedProblem.resolvedCoords || !mapInstanceRef.current) return
-    mapInstanceRef.current.flyTo([selectedProblem.resolvedCoords.lat, selectedProblem.resolvedCoords.lng], 10, {
-      animate: true,
-      duration: 1.2,
-    })
-  }, [selectedProblem])
 
   const userLocation = user?.location || 'India'
   const opportunityCards = getOpportunityCards(user?.role, filteredProblems, userLocation)
