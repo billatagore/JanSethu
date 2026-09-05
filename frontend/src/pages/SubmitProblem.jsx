@@ -50,13 +50,37 @@ export default function SubmitProblem() {
     }))
   }
 
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not available in this browser.')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setFormData(prev => ({
+          ...prev,
+          latitude: coords.latitude.toFixed(6),
+          longitude: coords.longitude.toFixed(6),
+        }))
+      },
+      () => {
+        setError('Location access was denied. You can still enter the coordinates manually.')
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    )
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSubmitting(true)
 
     try {
-      // Prepare data
       const submitData = {
         ...formData,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
@@ -67,9 +91,15 @@ export default function SubmitProblem() {
       const response = await problemsAPI.create(submitData, user.id)
       const problemId = response.data.id
 
-      // Navigate to AI analysis
-      navigate(`/problems/${problemId}/analyze`, {
-        state: { problemData: formData, auto: true }
+      navigate('/map', {
+        state: {
+          newProblemCreated: true,
+          problemTitle: submitData.title,
+          problemLocation: submitData.location,
+          problemCoords: submitData.latitude && submitData.longitude
+            ? { lat: submitData.latitude, lng: submitData.longitude }
+            : null,
+        },
       })
     } catch (error) {
       setError(error.response?.data?.detail || 'Failed to submit problem')
@@ -182,6 +212,16 @@ export default function SubmitProblem() {
                 step="0.0001"
               />
             </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              className="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              Use my current location
+            </button>
           </div>
 
           {/* Affected Population */}

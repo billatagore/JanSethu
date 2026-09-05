@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { MapPin, Filter, Building2, GraduationCap, Factory, Users, Search, Landmark, ArrowRight } from 'lucide-react'
+import { MapPin, Filter, Building2, GraduationCap, Factory, Users, Search, Landmark, ArrowRight, X } from 'lucide-react'
 import { problemsAPI } from '../services/api'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import L from 'leaflet'
 
@@ -14,12 +14,30 @@ function getUrgencyColor(urgency) {
   return '#22c55e'
 }
 
+function getUrgencyLabel(urgency) {
+  if (urgency === 'critical') return 'Crucial'
+  if (urgency === 'high') return 'Urgent'
+  if (urgency === 'medium') return 'Moderate'
+  return 'Low'
+}
+
 function getMarkerIcon(urgency) {
+  const label = urgency === 'critical' ? 'CR' : urgency === 'high' ? 'UR' : urgency === 'medium' ? 'MD' : 'LO'
+
   return L.divIcon({
     className: 'map-pin-wrapper',
-    html: `<span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${getUrgencyColor(urgency)};border:2px solid white;box-shadow:0 5px 15px rgba(15,23,42,0.2);color:#fff;font-size:9px;font-weight:700;">${urgency === 'critical' ? 'C' : urgency === 'high' ? 'H' : urgency === 'medium' ? 'M' : 'L'}</span>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    html: `<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${getUrgencyColor(urgency)};border:2px solid white;box-shadow:0 5px 15px rgba(15,23,42,0.2);color:#fff;font-size:8px;font-weight:800;letter-spacing:0.02em;">${label}</span>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  })
+}
+
+function getUserLocationIcon() {
+  return L.divIcon({
+    className: 'user-location-wrapper',
+    html: `<span style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#ef4444;border:3px solid white;box-shadow:0 0 0 6px rgba(239,68,68,0.15),0 10px 20px rgba(239,68,68,0.25);position:relative;"><span style="width:8px;height:8px;border-radius:50%;background:white;display:block;"></span></span>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
   })
 }
 
@@ -40,6 +58,87 @@ async function geocodeLocation(location) {
   }
 
   return null
+}
+
+function generateNearbyDemoProblems(center, count = 15) {
+  const categories = ['Water & Sanitation', 'Waste Management', 'Transportation', 'Healthcare', 'Education', 'Agriculture', 'Digital Inclusion', 'Climate Action', 'Accessibility', 'Energy']
+  const titles = [
+    'Broken water pipeline',
+    'Street lighting outage',
+    'Waste dumping hotspot',
+    'School transport risk',
+    'Flood drainage blockage',
+    'Rural internet gap',
+    'Waste segregation challenge',
+    'Public health sanitation issue',
+    'Road safety concern',
+    'Air pollution hotspot',
+    'E-waste collection gap',
+    'Food insecurity support point',
+    'Community clinic shortage',
+    'Cycle lane safety issue',
+    'Water quality testing need',
+    'School bus route problem',
+    'Power backup gap',
+    'Smart irrigation need',
+    'Youth skill center demand',
+    'Disaster shelter readiness'
+  ]
+
+  return Array.from({ length: count }, (_, index) => {
+    const angle = (index / count) * Math.PI * 2
+    const distanceKm = 2 + ((index * 7) % 30)
+    const latOffset = (distanceKm / 111.32) * Math.cos(angle)
+    const lngOffset = (distanceKm / (111.32 * Math.cos((center.lat * Math.PI) / 180))) * Math.sin(angle)
+
+    const urgency = index % 6 === 0 ? 'critical' : index % 3 === 0 ? 'high' : index % 2 === 0 ? 'medium' : 'low'
+    const category = categories[index % categories.length]
+
+    return {
+      id: `demo-${index + 1}`,
+      title: titles[index % titles.length],
+      description: 'Demo issue generated around the user location to showcase local challenge visibility, urgency, and collaboration potential.',
+      category,
+      location: `${Math.abs(latOffset).toFixed(3)}° ${center.lat >= 0 ? 'N' : 'S'}, ${Math.abs(lngOffset).toFixed(3)}° ${center.lng >= 0 ? 'E' : 'W'}`,
+      resolvedCoords: {
+        lat: Number((center.lat + latOffset).toFixed(5)),
+        lng: Number((center.lng + lngOffset).toFixed(5)),
+      },
+      urgency,
+      number_affected: 200 + index * 140,
+      isDemo: true,
+      outcome: 'Demo dataset',
+    }
+  })
+}
+
+function getDistanceKm(from, to) {
+  if (!from || !to) return Number.POSITIVE_INFINITY
+
+  const toRadians = (value) => (value * Math.PI) / 180
+  const earthRadiusKm = 6371
+  const dLat = toRadians(to.lat - from.lat)
+  const dLng = toRadians(to.lng - from.lng)
+  const lat1 = toRadians(from.lat)
+  const lat2 = toRadians(to.lat)
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2)
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function getUrgencyPriority(urgency) {
+  if (urgency === 'critical') return 4
+  if (urgency === 'high') return 3
+  if (urgency === 'medium') return 2
+  return 1
+}
+
+function isProblemActiveOnMap(problem) {
+  const status = String(problem?.status || '').toLowerCase()
+  return !['closed', 'implemented', 'impact_measured', 'resolved', 'solved'].includes(status)
 }
 
 function getOpportunityCards(role, problems, currentLocation) {
@@ -113,45 +212,104 @@ function getOpportunityCards(role, problems, currentLocation) {
 
 export default function ProblemMapPage() {
   const { user } = useAuth()
+  const location = useLocation()
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
+  const userLocationMarkerRef = useRef(null)
+  const radiusCircleRef = useRef(null)
   const [problems, setProblems] = useState([])
   const [filter, setFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [regionFilter, setRegionFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedProblemId, setSelectedProblemId] = useState(null)
+  const [userCoords, setUserCoords] = useState(null)
+  const [radiusKm, setRadiusKm] = useState(25)
+  const [submissionNotice, setSubmissionNotice] = useState(null)
 
-  useEffect(() => {
-    const loadProblems = async () => {
-      try {
-        const res = await problemsAPI.list({ sort_by: 'newest' })
-        const problemList = res.data || []
-
-        const normalized = await Promise.all(
-          problemList.map(async (problem) => {
-            const hasCoordinates = Number.isFinite(problem.latitude) && Number.isFinite(problem.longitude)
-            if (hasCoordinates) {
-              return { ...problem, resolvedCoords: { lat: Number(problem.latitude), lng: Number(problem.longitude) } }
-            }
-
-            const resolved = await geocodeLocation(problem.location)
-            return { ...problem, resolvedCoords: resolved }
-          })
-        )
-
-        setProblems(normalized)
-        if (normalized.length > 0) {
-          setSelectedProblemId(normalized[0].id)
-        }
-      } catch (error) {
-        console.error('Failed to load map data:', error)
-      } finally {
-        setLoading(false)
-      }
+  const pinpointUserLocation = () => {
+    if (!navigator.geolocation) {
+      return
     }
 
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const nextCoords = { lat: coords.latitude, lng: coords.longitude }
+        setUserCoords(nextCoords)
+
+        if (mapInstanceRef.current) {
+          if (userLocationMarkerRef.current) {
+            userLocationMarkerRef.current.setLatLng([nextCoords.lat, nextCoords.lng])
+          } else {
+            userLocationMarkerRef.current = L.marker([nextCoords.lat, nextCoords.lng], {
+              icon: getUserLocationIcon(),
+            })
+              .addTo(mapInstanceRef.current)
+              .bindPopup('Your current location')
+          }
+
+          if (radiusCircleRef.current) {
+            radiusCircleRef.current.setLatLng([nextCoords.lat, nextCoords.lng])
+            radiusCircleRef.current.setRadius(radiusKm * 1000)
+          } else {
+            radiusCircleRef.current = L.circle([nextCoords.lat, nextCoords.lng], {
+              radius: radiusKm * 1000,
+              color: '#ef4444',
+              fillColor: '#ef4444',
+              fillOpacity: 0.12,
+              weight: 2,
+            }).addTo(mapInstanceRef.current)
+          }
+
+          mapInstanceRef.current.flyTo([nextCoords.lat, nextCoords.lng], 12, {
+            animate: true,
+            duration: 1.2,
+          })
+        }
+      },
+      () => {
+        setUserCoords(null)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    )
+  }
+
+  const loadProblems = async () => {
+    try {
+      const res = await problemsAPI.list({ sort_by: 'newest' })
+      const problemList = res.data || []
+
+      const normalized = await Promise.all(
+        problemList.map(async (problem) => {
+          const hasCoordinates = Number.isFinite(problem.latitude) && Number.isFinite(problem.longitude)
+          if (hasCoordinates) {
+            return { ...problem, resolvedCoords: { lat: Number(problem.latitude), lng: Number(problem.longitude) } }
+          }
+
+          const resolved = await geocodeLocation(problem.location)
+          return { ...problem, resolvedCoords: resolved }
+        })
+      )
+
+      setProblems(normalized)
+      if (normalized.length > 0) {
+        setSelectedProblemId(normalized[0].id)
+      }
+    } catch (error) {
+      console.error('Failed to load map data:', error)
+      setProblems(generateNearbyDemoProblems(defaultCenter, 15))
+      setSelectedProblemId('demo-1')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     loadProblems()
   }, [])
 
@@ -164,19 +322,56 @@ export default function ProblemMapPage() {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(mapInstanceRef.current)
+
+    pinpointUserLocation()
   }, [])
+
+  useEffect(() => {
+    if (!userCoords) return
+
+    setProblems((currentProblems) => {
+      const nonDemo = currentProblems.filter((problem) => !problem.isDemo)
+      const demoNeeded = 15 - nonDemo.length
+
+      if (demoNeeded <= 0) {
+        return currentProblems
+      }
+
+      const demoProblems = generateNearbyDemoProblems(userCoords, demoNeeded)
+      const merged = [...nonDemo, ...demoProblems]
+      setSelectedProblemId((previous) => previous || merged[0]?.id || null)
+      return merged
+    })
+  }, [userCoords])
 
   const filteredProblems = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
     const normalizedRegion = regionFilter.trim().toLowerCase()
 
-    return problems.filter((problem) => {
-      const matchesCategory = filter === 'all' || problem.category === filter
-      const matchesSearch = !normalizedSearch || [problem.title, problem.description, problem.location, problem.category].join(' ').toLowerCase().includes(normalizedSearch)
-      const matchesRegion = !normalizedRegion || (problem.location || '').toLowerCase().includes(normalizedRegion)
-      return matchesCategory && matchesSearch && matchesRegion
-    })
-  }, [problems, filter, searchTerm, regionFilter])
+    return problems
+      .filter((problem) => {
+        const matchesCategory = filter === 'all' || problem.category === filter
+        const matchesSearch = !normalizedSearch || [problem.title, problem.description, problem.location, problem.category].join(' ').toLowerCase().includes(normalizedSearch)
+        const matchesRegion = !normalizedRegion || (problem.location || '').toLowerCase().includes(normalizedRegion)
+        const matchesRadius = !userCoords || !problem.resolvedCoords || getDistanceKm(userCoords, problem.resolvedCoords) <= radiusKm
+        const isActive = isProblemActiveOnMap(problem)
+
+        return isActive && matchesCategory && matchesSearch && matchesRegion && matchesRadius
+      })
+      .map((problem) => ({
+        ...problem,
+        distanceKm: userCoords && problem.resolvedCoords ? Math.round(getDistanceKm(userCoords, problem.resolvedCoords)) : null,
+      }))
+      .sort((a, b) => {
+        const urgencyDiff = getUrgencyPriority(b.urgency || 'low') - getUrgencyPriority(a.urgency || 'low')
+        if (urgencyDiff !== 0) return urgencyDiff
+
+        if (a.distanceKm === null || b.distanceKm === null) return 0
+        return a.distanceKm - b.distanceKm
+      })
+  }, [problems, filter, searchTerm, regionFilter, radiusKm, userCoords])
+
+  const nearbyProblemCount = filteredProblems.length
 
   useEffect(() => {
     if (!mapInstanceRef.current || !problems.length) return
@@ -187,25 +382,49 @@ export default function ProblemMapPage() {
     const map = mapInstanceRef.current
     const visibleProblems = filteredProblems
 
+    if (radiusCircleRef.current && userCoords) {
+      radiusCircleRef.current.setLatLng([userCoords.lat, userCoords.lng])
+      radiusCircleRef.current.setRadius(radiusKm * 1000)
+    }
+
     if (!visibleProblems.length) return
 
     const bounds = []
     visibleProblems.forEach((problem) => {
       if (!problem.resolvedCoords) return
+
       const marker = L.marker([problem.resolvedCoords.lat, problem.resolvedCoords.lng], {
         icon: getMarkerIcon(problem.urgency || 'medium'),
       }).addTo(map)
 
-      marker.bindPopup(`<strong>${problem.title}</strong><br />${problem.location}<br /><small>${problem.category}</small>`)
+      const distanceText = userCoords
+        ? `${Math.round(getDistanceKm(userCoords, problem.resolvedCoords))} km away`
+        : 'Location unavailable'
+
+      const label = document.createElement('div')
+      label.className = 'text-[10px] text-slate-700 bg-white/90 shadow-sm px-2 py-1 rounded-full border border-slate-200'
+      label.textContent = distanceText
+      label.style.position = 'absolute'
+      label.style.transform = 'translate(-50%, -140%)'
+      label.style.pointerEvents = 'none'
+      label.style.whiteSpace = 'nowrap'
+
+      const markerContainer = marker.getElement()
+      if (markerContainer) {
+        markerContainer.style.position = 'relative'
+        markerContainer.appendChild(label)
+      }
+
+      marker.bindPopup(`<strong>${problem.title}</strong><br />${problem.location}<br /><small>${problem.category}</small><br /><strong>${getUrgencyLabel(problem.urgency || 'medium')}</strong><br /><small>${distanceText}</small>`)
       marker.on('click', () => setSelectedProblemId(problem.id))
       markersRef.current.push(marker)
       bounds.push([problem.resolvedCoords.lat, problem.resolvedCoords.lng])
     })
 
-    if (bounds.length) {
-      map.fitBounds(bounds, { padding: [30, 30] })
-    }
-  }, [filteredProblems, problems.length])
+    // Keep the map stable while the user explores nearby issues. Auto-fitting on every
+    // selection or radius change causes markers to collapse unexpectedly and can make
+    // the rest of the map disappear during navigation.
+  }, [filteredProblems, problems.length, radiusKm, userCoords])
 
   const categories = useMemo(
     () => [...new Set((problems || []).map((problem) => problem.category).filter(Boolean))],
@@ -241,6 +460,42 @@ export default function ProblemMapPage() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 4)
   }, [filteredProblems])
+
+  const nearestMatches = useMemo(() => {
+    if (!userCoords) return []
+
+    return [...filteredProblems]
+      .filter((problem) => problem.resolvedCoords)
+      .map((problem) => ({
+        ...problem,
+        distanceKm: Math.round(getDistanceKm(userCoords, problem.resolvedCoords)),
+      }))
+      .sort((a, b) => {
+        const urgencyDiff = getUrgencyPriority(b.urgency || 'low') - getUrgencyPriority(a.urgency || 'low')
+        if (urgencyDiff !== 0) return urgencyDiff
+        return a.distanceKm - b.distanceKm
+      })
+      .slice(0, 3)
+  }, [filteredProblems, userCoords])
+
+  const focusProblemOnMap = (problem) => {
+    if (!problem?.resolvedCoords || !mapInstanceRef.current) return
+    setSelectedProblemId(problem.id)
+    mapInstanceRef.current.flyTo([problem.resolvedCoords.lat, problem.resolvedCoords.lng], 12, {
+      animate: true,
+      duration: 1.1,
+    })
+  }
+
+  useEffect(() => {
+    const notice = location.state?.newProblemCreated
+    if (notice && location.state?.problemTitle) {
+      setSubmissionNotice({
+        title: location.state.problemTitle,
+        location: location.state.problemLocation || 'near your current location',
+      })
+    }
+  }, [location.state])
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -306,6 +561,26 @@ export default function ProblemMapPage() {
           </div>
         </div>
 
+        {submissionNotice && (
+          <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-green-700">Problem created near you</p>
+                <h2 className="mt-2 text-xl font-bold text-slate-900">{submissionNotice.title}</h2>
+                <p className="mt-1 text-sm text-slate-600">This problem has been added to the map at {submissionNotice.location} and is now visible in the active radius.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubmissionNotice(null)}
+                className="rounded-full p-1 text-slate-500 hover:bg-green-100 hover:text-slate-700"
+                aria-label="Dismiss problem created notice"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 xl:grid-cols-[1.5fr,0.9fr] gap-6">
           <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
             <div className="flex items-center justify-between border-b border-slate-200 p-4">
@@ -313,11 +588,43 @@ export default function ProblemMapPage() {
                 <Filter size={18} className="text-blue-600" />
                 <p className="font-semibold text-slate-800">Map filters</p>
               </div>
-              <span className="text-sm text-slate-600">{filteredProblems.length} issues shown</span>
+              <span className="text-sm text-slate-600">{nearbyProblemCount} issues within {radiusKm} km</span>
             </div>
 
-            <div className="h-[620px] w-full">
+            <div className="h-[620px] w-full relative">
               <div ref={mapRef} className="h-full w-full" />
+
+              <div className="absolute right-4 top-4 z-[500] flex flex-col gap-3 w-[250px]">
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl border border-slate-200 p-3 shadow-lg">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Nearby radius</span>
+                    <span className="text-sm font-bold text-red-600">{radiusKm} km</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="100"
+                    step="1"
+                    value={radiusKm}
+                    disabled={!userCoords}
+                    onChange={(event) => setRadiusKm(Number(event.target.value))}
+                    className="w-full accent-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  />
+                  <div className="mt-2 flex justify-between text-[10px] font-medium text-slate-500">
+                    <span>1 km</span>
+                    <span>100 km</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={pinpointUserLocation}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition shadow-lg"
+                >
+                  <MapPin size={16} />
+                  Pinpoint my location
+                </button>
+              </div>
             </div>
           </div>
 
@@ -356,6 +663,37 @@ export default function ProblemMapPage() {
                 </>
               ) : (
                 <p className="text-slate-600">No issue selected.</p>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Landmark size={18} className="text-indigo-600" />
+                <p className="font-semibold text-slate-800">Nearest matches</p>
+              </div>
+
+              {nearestMatches.length > 0 ? (
+                <div className="space-y-3">
+                  {nearestMatches.map((match) => (
+                    <button
+                      key={match.id}
+                      type="button"
+                      onClick={() => focusProblemOnMap(match)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-slate-800 text-sm">{match.title}</p>
+                        <span className="px-2 py-1 rounded-full text-[10px] font-bold" style={{ backgroundColor: `${getUrgencyColor(match.urgency || 'medium')}20`, color: getUrgencyColor(match.urgency || 'medium') }}>
+                          {getUrgencyLabel(match.urgency || 'medium')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">{match.distanceKm} km away</p>
+                      <p className="text-xs text-slate-500">{match.location}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">Enable location access to see nearest university or industry matches.</p>
               )}
             </div>
 
