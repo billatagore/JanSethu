@@ -87,7 +87,7 @@ function generateNearbyDemoProblems(center, count = 15) {
 
   return Array.from({ length: count }, (_, index) => {
     const angle = (index / count) * Math.PI * 2
-    const distanceKm = 2 + ((index * 7) % 30)
+    const distanceKm = 2 + ((index * 7) % 18)
     const latOffset = (distanceKm / 111.32) * Math.cos(angle)
     const lngOffset = (distanceKm / (111.32 * Math.cos((center.lat * Math.PI) / 180))) * Math.sin(angle)
 
@@ -115,18 +115,7 @@ function generateNearbyDemoProblems(center, count = 15) {
 function getDistanceKm(from, to) {
   if (!from || !to) return Number.POSITIVE_INFINITY
 
-  const toRadians = (value) => (value * Math.PI) / 180
-  const earthRadiusKm = 6371
-  const dLat = toRadians(to.lat - from.lat)
-  const dLng = toRadians(to.lng - from.lng)
-  const lat1 = toRadians(from.lat)
-  const lat2 = toRadians(to.lat)
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2)
-
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return L.latLng(from.lat, from.lng).distanceTo(L.latLng(to.lat, to.lng)) / 1000
 }
 
 function getUrgencyPriority(urgency) {
@@ -218,6 +207,7 @@ export default function ProblemMapPage() {
   const markersRef = useRef([])
   const userLocationMarkerRef = useRef(null)
   const radiusCircleRef = useRef(null)
+  const hasCenteredOnUserRef = useRef(false)
   const [problems, setProblems] = useState([])
   const [filter, setFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -318,6 +308,11 @@ export default function ProblemMapPage() {
     const map = mapInstanceRef.current
     const location = [userCoords.lat, userCoords.lng]
 
+    if (!hasCenteredOnUserRef.current) {
+      map.setView(location, 12, { animate: false })
+      hasCenteredOnUserRef.current = true
+    }
+
     if (userLocationMarkerRef.current) {
       userLocationMarkerRef.current.setLatLng(location)
     } else {
@@ -341,7 +336,6 @@ export default function ProblemMapPage() {
       }).addTo(map)
     }
 
-    map.flyTo(location, 12, { animate: true, duration: 1.2 })
   }, [userCoords, radiusKm])
 
   const filteredProblems = useMemo(() => {
